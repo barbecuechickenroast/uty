@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Undertale Yellow - Web Client</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #1a1a1a 0%, #050505 100%);
+            color: #ffffff; font-family: "Lucida Console", Monaco, monospace;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative; width: 640px; height: 480px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8); background: #000;
+        }
+        canvas {
+            width: 100%; height: 100%;
+            image-rendering: pixelated; 
+        }
+        #loading-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 10;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333;
+            border-top: 5px solid #ffcc00; border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #progress-text { margin-top: 20px; font-size: 14px; color: #ffcc00; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="loading-screen">
+            <div class="spinner"></div>
+            <div id="progress-text">Downloading Core Assets (0%)...</div>
+        </div>
+
+        <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+
+    <script>
+        const TOTAL_PARTS = 5; 
+        let downloadedParts = [];
+
+        async function loadGameAssets() {
+            const progressText = document.getElementById('progress-text');
+            try {
+                for (let i = 1; i <= TOTAL_PARTS; i++) {
+                    progressText.innerText = `Fetching Asset Pack Part ${i}/${TOTAL_PARTS}...`;
+                    // Expects files named part1.dat, part2.dat, etc. in the same directory
+                    const response = await fetch(`assets/part${i}.dat`);
+                    if (!response.ok) throw new Error(`Failed to load segment ${i}`);
+                    const blob = await response.blob();
+                    downloadedParts.push(blob);
+                }
+
+                progressText.innerText = "Stitching asset packs together...";
+                const fullGameBlob = new Blob(downloadedParts, { type: "application/octet-stream" });
+                const gameUrl = URL.createObjectURL(fullGameBlob);
+              
+                document.getElementById('loading-screen').style.display = 'none';
+                
+                initGameEngine(gameUrl);
+
+            } catch (error) {
+                progressText.innerText = "Error loading files. Check browser console logs.";
+                console.error(error);
+            }
+        }
+
+        function initGameEngine(gameDataUrl) {
+            console.log("Assets loaded successfully. Initializing runtime canvas wrapper...");
+            window.g_GameDataURL = gameDataUrl;
+            
+            const engineScript = document.createElement('script');
+            engineScript.src = "UndertaleYellowEngine.js"; 
+            document.body.appendChild(engineScript);
+        }
+
+        window.onload = loadGameAssets;
+    </script>
+</body>
+</html>
